@@ -169,9 +169,10 @@ const verifyPayment = async (req, res) => {
       return apiResponse.error(res, 'Invalid signature', 400);
     }
 
+    // Lock order row only (no eager join): PostgreSQL rejects FOR UPDATE on
+    // LEFT OUTER JOIN nullable side when include + lock are combined.
     const order = await Order.findOne({
       where: { razorpay_order_id },
-      include: [{ model: Listing, as: 'listing' }],
       transaction: t,
       lock: true,
     });
@@ -191,7 +192,9 @@ const verifyPayment = async (req, res) => {
       return apiResponse.error(res, 'Order already processed', 400);
     }
 
-    const listing = order.listing;
+    const listing = order.listing_id
+      ? await Listing.findByPk(order.listing_id, { transaction: t, lock: true })
+      : null;
     if (!listing || listing.status === 'sold') {
       await t.rollback();
       return apiResponse.error(res, 'Listing no longer available', 400);

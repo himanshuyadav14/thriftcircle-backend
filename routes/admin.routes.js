@@ -16,6 +16,15 @@ router.get(
 );
 
 router.get(
+  '/stats',
+  // #swagger.tags = ['Admin']
+  // #swagger.summary = Same counters as dashboard (snake_case + aliases for SPA)
+  // #swagger.security = [{ bearerAuth: [] }]
+  admin,
+  ctrl.stats
+);
+
+router.get(
   '/users',
   // #swagger.tags = ['Admin']
   // #swagger.summary = Paginated users + search

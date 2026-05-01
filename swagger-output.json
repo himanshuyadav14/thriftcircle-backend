@@ -251,20 +251,11 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "full_name",
-                  "username",
                   "email",
-                  "password"
+                  "password",
+                  "phone"
                 ],
                 "properties": {
-                  "full_name": {
-                    "type": "string",
-                    "example": "Jane Doe"
-                  },
-                  "username": {
-                    "type": "string",
-                    "example": "janedoe"
-                  },
                   "email": {
                     "type": "string",
                     "example": "jane@mail.com"
@@ -274,6 +265,13 @@
                     "example": "Password123"
                   },
                   "phone": {
+                    "type": "string",
+                    "example": "9876543210"
+                  },
+                  "full_name": {
+                    "type": "string"
+                  },
+                  "username": {
                     "type": "string"
                   },
                   "city": {
@@ -407,6 +405,36 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/api/categories/": {
+      "get": {
+        "tags": [
+          "Meta"
+        ],
+        "summary": "Public — list listing categories for forms and filters",
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": {
+                    "categories": [
+                      {
+                        "id": 1,
+                        "name": "Shirts",
+                        "slug": "shirts"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/users/profile": {
@@ -762,9 +790,16 @@
         "tags": [
           "Listings"
         ],
-        "summary": "Public feed (premium/featured boosted first)",
+        "summary": "Public feed (premium/featured boosted first). Logged-in users do not see their own listings.",
         "description": "",
         "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "limit",
             "in": "query",
@@ -801,9 +836,16 @@
         "tags": [
           "Listings"
         ],
-        "summary": "My listings (all statuses)",
+        "summary": "My listings — optional query status filter",
         "description": "",
         "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "authorization",
             "in": "header",
@@ -839,7 +881,7 @@
         "tags": [
           "Listings"
         ],
-        "summary": "Listings by category slug",
+        "summary": "Listings by category slug (own listings hidden when Bearer sent)",
         "description": "",
         "parameters": [
           {
@@ -863,6 +905,13 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -872,18 +921,63 @@
         }
       }
     },
-    "/api/listings/{id}": {
+    "/api/listings/{id}/similar": {
       "get": {
         "tags": [
           "Listings"
         ],
-        "summary": "Single listing (increments views)",
+        "summary": "Similar listings (same category/brand; own listings hidden when Bearer sent)",
         "description": "",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/listings/{id}": {
+      "get": {
+        "tags": [
+          "Listings"
+        ],
+        "summary": "Single listing (increments views; skipped for Bearer admin)",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -1858,6 +1952,25 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/admin/stats": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Same counters as dashboard (snake_case + aliases for SPA)",
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
           }
         },
         "security": [

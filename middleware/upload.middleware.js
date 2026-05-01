@@ -22,6 +22,9 @@ const uploadMultiple = multer({
   limits,
 }).array('images', 5);
 
+/** Multipart forms with no files — parses fields for PATCH/PUT listings from FormData clients */
+const uploadNone = multer().none();
+
 const wrapUpload = (mw) => (req, res, next) =>
   mw(req, res, (err) => {
     if (err) {
@@ -30,4 +33,10 @@ const wrapUpload = (mw) => (req, res, next) =>
     next();
   });
 
-module.exports = { uploadSingle, uploadMultiple, wrapUpload, maxSize };
+module.exports = {
+  uploadSingle,
+  uploadMultiple,
+  uploadNone,
+  wrapUpload,
+  maxSize,
+};

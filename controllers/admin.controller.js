@@ -9,24 +9,51 @@ const {
   ListingImage,
 } = require('../models/postgres');
 
+const loadDashboardCounts = async () => {
+  const [users, listings, orders, pendingMod] = await Promise.all([
+    User.count(),
+    Listing.count(),
+    Order.count(),
+    Listing.count({ where: { status: 'under_review' } }),
+  ]);
+
+  const revenueAgg = await Order.findAll({
+    attributes: [[fn('SUM', col('platform_commission')), 'total']],
+    where: { status: { [Op.in]: ['paid', 'pickup_scheduled', 'picked_up', 'shipped', 'delivered', 'completed'] } },
+    raw: true,
+  });
+
+  const revenue = Number(revenueAgg[0]?.total || 0);
+  return { users, listings, orders, pendingMod, revenue };
+};
+
 const dashboard = async (req, res) => {
   try {
-    const [users, listings, orders, pendingMod] = await Promise.all([
-      User.count(),
-      Listing.count(),
-      Order.count(),
-      Listing.count({ where: { status: 'under_review' } }),
-    ]);
-
-    const revenueAgg = await Order.findAll({
-      attributes: [[fn('SUM', col('platform_commission')), 'total']],
-      where: { status: { [Op.in]: ['paid', 'pickup_scheduled', 'picked_up', 'shipped', 'delivered', 'completed'] } },
-      raw: true,
-    });
-
-    const revenue = Number(revenueAgg[0]?.total || 0);
+    const { users, listings, orders, pendingMod, revenue } = await loadDashboardCounts();
 
     return apiResponse.success(res, {
+      users,
+      listings,
+      orders,
+      pendingModeration: pendingMod,
+      revenueCommission: revenue,
+    });
+  } catch {
+    return apiResponse.error(res, 'Something went wrong', 500);
+  }
+};
+
+/** Alias for dashboards that call `/admin/stats` — field names aligned with frontend cards */
+const stats = async (req, res) => {
+  try {
+    const { users, listings, orders, pendingMod, revenue } = await loadDashboardCounts();
+
+    return apiResponse.success(res, {
+      total_orders: orders,
+      total_users: users,
+      total_listings: listings,
+      revenue,
+      pending_moderation: pendingMod,
       users,
       listings,
       orders,
@@ -191,6 +218,7 @@ const listListingsAdmin = async (req, res) => {
 
 module.exports = {
   dashboard,
+  stats,
   listUsers,
   banUser,
   listOrders,

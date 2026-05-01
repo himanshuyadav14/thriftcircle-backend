@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "clear": "node scripts/clear.js",
+    "seed": "node scripts/seed.js",
+    "fresh": "npm run clear && npm run seed",
     "swagger": "node swagger-autogen.js"
   },
   "engines": {
@@ -37,6 +40,7 @@
     "uuid": "^11.0.3"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.4.0",
     "swagger-autogen": "^2.23.7"
   }
 }

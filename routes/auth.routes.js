@@ -10,17 +10,29 @@ router.post(
   '/register', // #swagger.tags = ['Auth']
   // #swagger.summary = Register (multipart: fields + optional avatar file)
   // #swagger.consumes = ['multipart/form-data']
-  // #swagger.requestBody = { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["full_name", "username", "email", "password"], properties: { full_name: { type: "string", example: "Jane Doe" }, username: { type: "string", example: "janedoe" }, email: { type: "string", example: "jane@mail.com" }, password: { type: "string", example: "Password123" }, phone: { type: "string" }, city: { type: "string" }, state: { type: "string" }, avatar: { type: "string", format: "binary" } } } } } }
+  // #swagger.requestBody = { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["email", "password", "phone"], properties: { email: { type: "string", example: "jane@mail.com" }, password: { type: "string", example: "Password123" }, phone: { type: "string", example: "9876543210" }, full_name: { type: "string" }, username: { type: "string" }, city: { type: "string" }, state: { type: "string" }, avatar: { type: "string", format: "binary" } } } } } }
   // #swagger.responses[201] = { description: "Created", content: { "application/json": { example: { success: true, message: "Registered", data: { accessToken: "eyJ...", refreshToken: "uuid" } } } } }
   // #swagger.responses[422] = { description: "Validation failed", content: { "application/json": { example: { success: false, message: "Validation failed", errors: [] } } } }
   authLimiter,
   wrapUpload(uploadSingle),
   [
-    body('full_name').trim().isLength({ min: 2, max: 100 }),
-    body('username').trim().isLength({ min: 3, max: 30 }),
+    body('full_name')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ min: 2, max: 100 }),
+    body('username')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ min: 3, max: 30 }),
     body('email').isEmail(),
     body('password').isLength({ min: 8 }),
-    body('phone').optional({ nullable: true }),
+    body('phone')
+      .trim()
+      .notEmpty()
+      .custom((value) => {
+        const digits = String(value || '').replace(/\D/g, '');
+        return digits.length >= 10 && digits.length <= 15;
+      }),
     body('city').optional({ nullable: true }),
     body('state').optional({ nullable: true }),
   ],

@@ -2,9 +2,10 @@ const express = require('express');
 const { body, param, query } = require('express-validator');
 const router = express.Router();
 const auth = require('../middleware/auth.middleware');
+const optionalAuth = require('../middleware/optionalAuth.middleware');
 const validate = require('../middleware/validate.middleware');
 const ctrl = require('../controllers/listing.controller');
-const { uploadMultiple, wrapUpload } = require('../middleware/upload.middleware');
+const { uploadMultiple, uploadNone, wrapUpload } = require('../middleware/upload.middleware');
 
 const sizeEnums = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size'];
 
@@ -39,9 +40,10 @@ router.post(
 router.get(
   '/',
   // #swagger.tags = ['Listings']
-  // #swagger.summary = Public feed (premium/featured boosted first)
+  // #swagger.summary = Public feed (premium/featured boosted first). Logged-in users do not see their own listings.
   // #swagger.parameters = [{ name: "page", in: "query" }, { name: "limit", in: "query" }, { name: "category_id", in: "query" }, { name: "size", in: "query" }, { name: "condition", in: "query" }, { name: "city", in: "query" }, { name: "min_price", in: "query" }, { name: "max_price", in: "query" }, { name: "search", in: "query" }]
   // #swagger.responses[200] = { description: "Paginated listings", content: { "application/json": { example: { success: true, data: [], pagination: {} } } } }
+  optionalAuth,
   [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
@@ -58,33 +60,53 @@ router.get(
 router.get(
   '/my/listings',
   // #swagger.tags = ['Listings']
-  // #swagger.summary = My listings (all statuses)
+  // #swagger.summary = My listings — optional query status filter
+  // #swagger.parameters[1] = { name: "status", in: "query", schema: { type: "string", enum: ["under_review", "published", "rejected", "sold", "draft"] } }
   // #swagger.security = [{ bearerAuth: [] }]
   // #swagger.responses[200] = { description: "OK", content: { "application/json": { example: { success: true, data: { listings: [] } } } } }
   auth,
+  [
+    query('status').optional().isIn(['under_review', 'published', 'rejected', 'sold', 'draft']),
+  ],
+  validate,
   ctrl.myListings
 );
 
 router.get(
   '/category/:slug',
   // #swagger.tags = ['Listings']
-  // #swagger.summary = Listings by category slug
+  // #swagger.summary = Listings by category slug (own listings hidden when Bearer sent)
   // #swagger.parameters[0] = { name: "slug", in: "path", example: "shirts" }
   // #swagger.parameters[1] = { name: "page", in: "query" }
   // #swagger.parameters[2] = { name: "limit", in: "query" }
   // #swagger.responses[200] = { description: "Paginated" }
+  optionalAuth,
   [param('slug').notEmpty()],
   validate,
   ctrl.byCategorySlug
 );
 
 router.get(
+  '/:id/similar',
+  // #swagger.tags = ['Listings']
+  // #swagger.summary = Similar listings (same category/brand; own listings hidden when Bearer sent)
+  // #swagger.parameters[0] = { name: "id", in: "path", schema: { type: "string", format: "uuid" } }
+  // #swagger.parameters[1] = { name: "limit", in: "query", schema: { type: "integer", example: 8 } }
+  // #swagger.responses[200] = { description: "OK" }
+  optionalAuth,
+  [param('id').isUUID(), query('limit').optional().isInt({ min: 1, max: 50 })],
+  validate,
+  ctrl.getSimilar
+);
+
+router.get(
   '/:id',
   // #swagger.tags = ['Listings']
-  // #swagger.summary = Single listing (increments views)
+  // #swagger.summary = Single listing (increments views; skipped for Bearer admin)
   // #swagger.parameters[0] = { name: "id", in: "path", schema: { type: "string", format: "uuid" } }
   // #swagger.responses[200] = { description: "OK", content: { "application/json": { example: { success: true, data: { listing: {} } } } } }
   // #swagger.responses[404] = { description: "Listing not found" }
+  optionalAuth,
   [param('id').isUUID()],
   validate,
   ctrl.getListing
@@ -99,6 +121,7 @@ router.put(
   // #swagger.requestBody = { content: { "application/json": { example: { title: "New title", price: 999 } } } }
   // #swagger.responses[200] = { description: "OK" }
   auth,
+  wrapUpload(uploadNone),
   [
     param('id').isUUID(),
     body('title').optional().trim(),

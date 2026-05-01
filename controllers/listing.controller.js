@@ -135,6 +135,9 @@ const getFeed = async (req, res) => {
     const offset = (page - 1) * limit;
 
     const where = buildFeedWhere(req.query);
+    if (req.user?.id) {
+      where.seller_id = { [Op.ne]: req.user.id };
+    }
 
     const { rows, count } = await Listing.findAndCountAll({
       where,
@@ -156,9 +159,12 @@ const getListing = async (req, res) => {
     const listing = await Listing.findByPk(req.params.id, { include: includeDefault });
     if (!listing) return apiResponse.error(res, 'Listing not found', 404);
 
-    setImmediate(() => {
-      Listing.increment('views_count', { where: { id: listing.id } });
-    });
+    const skipViews = req.user?.role === 'admin';
+    if (!skipViews) {
+      setImmediate(() => {
+        Listing.increment('views_count', { where: { id: listing.id } });
+      });
+    }
 
     return apiResponse.success(res, { listing });
   } catch {
@@ -229,8 +235,14 @@ const deleteListing = async (req, res) => {
 
 const myListings = async (req, res) => {
   try {
+    const where = { seller_id: req.user.id };
+    const status = typeof req.query.status === 'string' ? req.query.status.trim() : '';
+    if (status) {
+      where.status = status;
+    }
+
     const rows = await Listing.findAll({
-      where: { seller_id: req.user.id },
+      where,
       order: [['updatedAt', 'DESC']],
       include: [
         { model: Category },
@@ -252,8 +264,13 @@ const byCategorySlug = async (req, res) => {
     const page = Number(req.query.page) || 1;
     const offset = (page - 1) * limit;
 
+    const catWhere = { category_id: cat.id, status: 'published', is_active: true };
+    if (req.user?.id) {
+      catWhere.seller_id = { [Op.ne]: req.user.id };
+    }
+
     const { rows, count } = await Listing.findAndCountAll({
-      where: { category_id: cat.id, status: 'published', is_active: true },
+      where: catWhere,
       include: includeDefault,
       order: feedSort,
       limit,
@@ -266,6 +283,42 @@ const byCategorySlug = async (req, res) => {
   }
 };
 
+const getSimilar = async (req, res) => {
+  try {
+    const base = await Listing.findByPk(req.params.id);
+    if (!base) return apiResponse.error(res, 'Listing not found', 404);
+
+    const limit = Math.min(Number(req.query.limit) || 8, 50);
+
+    const where = {
+      status: 'published',
+      is_active: true,
+      id: { [Op.ne]: base.id },
+      [Op.or]: [{ category_id: base.category_id }],
+    };
+
+    if (req.user?.id) {
+      where.seller_id = { [Op.ne]: req.user.id };
+    }
+
+    if (base.brand) {
+      where[Op.or].push({ brand: base.brand });
+    }
+
+    const rows = await Listing.findAll({
+      where,
+      include: includeDefault,
+      order: feedSort,
+      limit,
+    });
+
+    return apiResponse.success(res, { listings: rows });
+  } catch (e) {
+    console.error(e);
+    return apiResponse.error(res, 'Something went wrong', 500);
+  }
+};
+
 module.exports = {
   createListing,
   getFeed,
@@ -274,4 +327,5 @@ module.exports = {
   deleteListing,
   myListings,
   byCategorySlug,
+  getSimilar,
 };

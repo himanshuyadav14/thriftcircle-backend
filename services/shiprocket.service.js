@@ -14,9 +14,17 @@ const login = async () => {
     return cachedToken;
   }
 
+  const email = process.env.SHIPROCKET_EMAIL;
+  const password = process.env.SHIPROCKET_PASSWORD;
+  if (!email || !password) {
+    throw new Error(
+      'Shiprocket credentials missing: set SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD in backend .env (Shiprocket dashboard → Settings → API)'
+    );
+  }
+
   const { data } = await axios.post(`${BASE}/auth/login`, {
-    email: process.env.SHIPROCKET_EMAIL,
-    password: process.env.SHIPROCKET_PASSWORD,
+    email,
+    password,
   });
 
   if (!data.token) throw new Error('Shiprocket login failed');
